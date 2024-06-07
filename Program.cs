@@ -10,7 +10,9 @@ using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<IUsers, UserDAL>();
+builder.Services.AddScoped<IPaymentMethod, PaymentMethodDAL>();
+
+builder.Services.AddScoped<IDetailPayment, DetailPaymentDAL>();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -47,34 +49,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapGet("/users", (IUsers user) =>
+
+app.MapGet("/paymentMethod", (IPaymentMethod paymentMethod) =>
 {
-    return Results.Ok(user.GetAll());
+    return Results.Ok(paymentMethod.GetAll());
 });
 
-app.MapGet("/users/{name}", (IUsers user, string name) =>
-{
-    var users = user.GetByName(name);
-    if (users == null)
-    {
-        return Results.NotFound();
-    }
-    return Results.Ok(users);
-});
-
-app.MapPost("/user", (IUsers user, Users obj) =>
+app.MapPost("/paymentMethod", (IPaymentMethod paymentMethod, PaymentMethod obj) =>
 {
     try
     {
-        Users users = new Users
+        PaymentMethod payment = new PaymentMethod
         {
-            UserName = obj.UserName,
-            Password = obj.Password,
-            FullName = obj.FullName,
-            Balance = obj.Balance
+            NamePayment = obj.NamePayment
         };
-        user.Insert(users);
-        return Results.Created($"/user/{users.UserName}", users);
+        paymentMethod.Insert(payment);
+        return Results.Created($"/user/{payment.IdPayment}", payment);
     }
     catch (Exception ex)
     {
@@ -82,38 +72,16 @@ app.MapPost("/user", (IUsers user, Users obj) =>
     }
 });
 
-app.MapPut("/users/updatebalance", async (IUsers userDal, UserUpdateBalanceDTO userDto) =>
+app.MapPut("/paymentMethod", (IPaymentMethod paymentMethod, PaymentMethod obj) =>
 {
     try
     {
-        await userDal.UpdateBalancekAsync(userDto.UserName, userDto.Balance);
-        return Results.Ok(new { Message = "Users Balance updated successfully" });
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { Message = ex.Message });
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new { Message = "An error occurred while updating the Users Balance", Error = ex.Message });
-    }
-});
-
-
-app.MapPost("/login", async (IUsers user, Users login) =>
-{
-    try
-    {
-        var users = user.ValidateUser(login.UserName, login.Password);
-        if (users != null)
+        PaymentMethod payment = new PaymentMethod
         {
-            var token = GenerateJwtToken(users, builder.Configuration);
-            return Results.Ok(new  { Message = "Login Berhasil", Token = token });
-        }
-        else
-        {
-            return Results.Unauthorized();
-        }
+            NamePayment = obj.NamePayment
+        };
+        paymentMethod.Update(payment);
+        return Results.Ok(payment);
     }
     catch (Exception ex)
     {
@@ -121,30 +89,23 @@ app.MapPost("/login", async (IUsers user, Users login) =>
     }
 });
 
+app.MapDelete("/paymentMethod/{id}", (IPaymentMethod paymentMethod, int id) =>
+{
+    try
+    {
+        paymentMethod.Delete(id);
+        return Results.Ok(new { success = true, message = "request delete successful" });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+
+app.MapGet("/detailPaymentMethod", (IDetailPayment detailPayment) =>
+{
+    return Results.Ok(detailPayment.GetAll());
+});
 
 app.Run();
 
-string GenerateJwtToken(Users user, IConfiguration configuration)
-{
-    var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
-    var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-    var claims = new[]
-    {
-        new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
-        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-    };
-
-    var token = new JwtSecurityToken(
-        issuer: configuration["Jwt:Issuer"],
-        audience: configuration["Jwt:Audience"],
-        claims: claims,
-        expires: DateTime.Now.AddMinutes(int.Parse(configuration["Jwt:ExpiryMinutes"])),
-        signingCredentials: credentials);
-
-    return new JwtSecurityTokenHandler().WriteToken(token);
-}
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

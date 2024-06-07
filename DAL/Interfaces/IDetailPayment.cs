@@ -6,11 +6,8 @@ using PaymentServices.Models;
 
 namespace PaymentServices.DAL.Interfaces
 {
-    public interface IUsers : ICrud<Users>
+    public interface IDetailPayment : ICrud<DetailPayment>
     {
-        Users? ValidateUser(string username, string password);
-
-        Task UpdateBalancekAsync(string username, decimal balance);
-
+        
     }
 }
