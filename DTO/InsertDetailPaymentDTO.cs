@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace PaymentServices.Models
+namespace PaymentServices.DTO
 {
-    public class DetailPayment
+    public class InsertDetailPaymentDTO
     {
-        public int DetailPaymentId { get; set; }
         public string PaymentMethod { get; set; }
         public string UserName { get; set; }
         public decimal Amount { get; set; }

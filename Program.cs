@@ -2,44 +2,25 @@ using PaymentServices.DAL;
 using PaymentServices.DAL.Interfaces;
 using PaymentServices.DTO;
 using PaymentServices.Models;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
+using PaymentServices.Services;
+using Polly;
 using System.Text;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<IPaymentMethod, PaymentMethodDAL>();
 
 builder.Services.AddScoped<IDetailPayment, DetailPaymentDAL>();
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-    };
-});
-builder.Services.AddAuthorization();
+//register HttpClient
+builder.Services.AddHttpClient<IUserServices, UserService>().AddTransientHttpErrorPolicy(p => p.WaitAndRetryAsync(3, _ => TimeSpan.FromMilliseconds(6000)));
+
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-app.UseAuthentication();
-app.UseAuthorization();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -50,61 +31,41 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 
-app.MapGet("/paymentMethod", (IPaymentMethod paymentMethod) =>
-{
-    return Results.Ok(paymentMethod.GetAll());
-});
-
-app.MapPost("/paymentMethod", (IPaymentMethod paymentMethod, PaymentMethod obj) =>
-{
-    try
-    {
-        PaymentMethod payment = new PaymentMethod
-        {
-            NamePayment = obj.NamePayment
-        };
-        paymentMethod.Insert(payment);
-        return Results.Created($"/user/{payment.IdPayment}", payment);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-});
-
-app.MapPut("/paymentMethod", (IPaymentMethod paymentMethod, PaymentMethod obj) =>
-{
-    try
-    {
-        PaymentMethod payment = new PaymentMethod
-        {
-            NamePayment = obj.NamePayment
-        };
-        paymentMethod.Update(payment);
-        return Results.Ok(payment);
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-});
-
-app.MapDelete("/paymentMethod/{id}", (IPaymentMethod paymentMethod, int id) =>
-{
-    try
-    {
-        paymentMethod.Delete(id);
-        return Results.Ok(new { success = true, message = "request delete successful" });
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(ex.Message);
-    }
-});
-
-app.MapGet("/detailPaymentMethod", (IDetailPayment detailPayment) =>
+app.MapGet("/detailPayment", (IDetailPayment detailPayment) =>
 {
     return Results.Ok(detailPayment.GetAll());
+});
+
+app.MapPost("/detailPayment", async (IDetailPayment iDetailPayment, InsertDetailPaymentDTO obj, IUserServices userServices) =>
+{
+    var user = await userServices.GetUserByName(obj.UserName);
+    if (user == null)
+    {
+        return Results.BadRequest("data not found");
+    }
+    try
+    {
+        DetailPayment detail = new DetailPayment
+        {
+            PaymentMethod = obj.PaymentMethod,
+            UserName = obj.UserName,
+            Amount = obj.Amount,
+            DateTopUp = obj.DateTopUp
+        };
+        UserUpdateBalanceDTO userUpdateBalance = new UserUpdateBalanceDTO
+        {
+            UserName = obj.UserName,
+            Balance = obj.Amount 
+        };
+
+        iDetailPayment.Insert(detail);
+        await userServices.TopUpBalanceAsync(userUpdateBalance);
+        return Results.Created($"/detailPayment/{detail.DetailPaymentId}", detail);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
 });
 
 app.Run();

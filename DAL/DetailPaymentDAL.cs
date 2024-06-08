@@ -43,7 +43,26 @@ namespace PaymentServices.DAL
 
         public void Insert(DetailPayment obj)
         {
-            throw new NotImplementedException();
+            using (SqlConnection conn = _conn.GetConnectDb())
+            {
+                var strSql = @"INSERT INTO DetailPayment (PaymentMethod, UserName, Amount, DateTopUp) VALUES (@PaymentMethod, @UserName, @Amount, @DateTopUp); select @@IDENTITY";
+                var param = new
+                {
+                    PaymentMethod = obj.PaymentMethod,
+                    UserName = obj.UserName,
+                    Amount = obj.Amount,
+                    DateTopUp = obj.DateTopUp
+                };
+                try
+                {
+                    conn.Execute(strSql, param);
+
+                }
+                catch (SqlException sqlEx)
+                {
+                    throw new ArgumentException(sqlEx.Message);
+                }
+            }
         }
 
         public void Update(DetailPayment obj)
