@@ -7,7 +7,7 @@ namespace PaymentServices.Models
 {
     public class User
     {
-        public string UserName { get; set; }
+        public string userName { get; set; }
         public string? Password { get; set; }
         public string? FullName { get; set; }
         public decimal Balance { get; set; }

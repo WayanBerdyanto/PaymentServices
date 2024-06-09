@@ -7,7 +7,7 @@ namespace PaymentServices.DTO
 {
     public class UserUpdateBalanceDTO
     {
-        public string UserName { get; set; }
+        public string userName { get; set; }
         public decimal Balance { get; set; }
     }
 }

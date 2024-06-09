@@ -54,7 +54,7 @@ app.MapPost("/detailPayment", async (IDetailPayment iDetailPayment, InsertDetail
         };
         UserUpdateBalanceDTO userUpdateBalance = new UserUpdateBalanceDTO
         {
-            UserName = obj.UserName,
+            userName = obj.UserName,
             Balance = obj.Amount 
         };
 
